@@ -16,10 +16,11 @@ var look_pitch := 0.0
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		if event.pressed:
-			if event.position.x < get_viewport().size.x * 0.5:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if touch.position.x < get_viewport().size.x * 0.5:
 				joy_active = true
-				joy_origin = event.position
+				joy_origin = touch.position
 				move_dir = Vector2.ZERO
 			else:
 				flashlight.visible = not flashlight.visible
@@ -28,13 +29,14 @@ func _input(event: InputEvent) -> void:
 				joy_active = false
 				move_dir = Vector2.ZERO
 	elif event is InputEventScreenDrag:
-		if joy_active and event.position.x < get_viewport().size.x * 0.5:
-			var v := event.position - joy_origin
+		var drag := event as InputEventScreenDrag
+		if joy_active and drag.position.x < get_viewport().size.x * 0.5:
+			var v := drag.position - joy_origin
 			if v.length() > JOY_RADIUS:
 				v = v.normalized() * JOY_RADIUS
 			move_dir = v / JOY_RADIUS
 		else:
-			look_delta += event.relative
+			look_delta += drag.relative
 
 func _physics_process(_delta: float) -> void:
 	look_yaw -= look_delta.x * LOOK_SENS
