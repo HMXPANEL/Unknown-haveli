@@ -1,0 +1,58 @@
+[gd_scene load_steps=7 format=3 uid="uid://bunknownhavelimain"]
+
+[ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(20, 20)
+
+[sub_resource type="StandardMaterial3D" id="Mat_floor"]
+albedo_color = Color(0.45, 0.42, 0.38, 1)
+
+[sub_resource type="BoxShape3D" id="Box_floor"]
+size = Vector3(20, 1, 20)
+
+[sub_resource type="CapsuleShape3D" id="Caps_player"]
+radius = 0.3
+height = 1.2
+
+[sub_resource type="Environment" id="Env_main"]
+background_color = Color(0.04, 0.04, 0.06, 1)
+ambient_light_color = Color(0.18, 0.18, 0.22, 1)
+ambient_light_energy = 0.5
+tonemap_mode = 0
+
+[node name="World" type="Node3D"]
+
+[node name="Floor" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("Box_floor")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
+rotation = Vector3(-1.5708, 0, 0)
+mesh = SubResource("PlaneMesh_floor")
+material_override = SubResource("Mat_floor")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+position = Vector3(2, 6, 3)
+rotation = Vector3(-0.6, 0, 0)
+light_energy = 0.8
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_main")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+position = Vector3(0, 1.0, 0)
+script = ExtResource("1_main")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+shape = SubResource("Caps_player")
+
+[node name="Camera3D" type="Camera3D" parent="Player"]
+
+[node name="SpotLight3D" type="SpotLight3D" parent="Player/Camera3D"]
+position = Vector3(0, 0, 0)
+spot_angle = 35.0
+shadow_enabled = true
+light_energy = 2.0

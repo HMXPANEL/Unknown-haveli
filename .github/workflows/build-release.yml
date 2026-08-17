@@ -1,0 +1,72 @@
+name: Build Release AAB
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    if: ${{ secrets.RELEASE_KEYSTORE != '' }}
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.4.1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Cache Godot binary
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: godot
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Download Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -o "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+
+      - name: Download export templates
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -o "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d /tmp/tpl
+          cp /tmp/tpl/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+
+      - name: Decode keystore
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 -d > release.keystore
+
+      - name: Inject keystore config
+        run: |
+          sed -i "s|__KEYSTORE_PATH__|release.keystore|" export_presets.cfg
+          sed -i "s|__KEYSTORE_PASS__|${{ secrets.RELEASE_KEYSTORE_PASSWORD }}|" export_presets.cfg
+          sed -i "s|__KEYSTORE_USER__|${{ secrets.RELEASE_KEYSTORE_ALIAS }}|" export_presets.cfg
+
+      - name: Import project
+        run: ./godot --headless --editor --quit
+
+      - name: Build Release AAB
+        run: ./godot --headless --export-android "AndroidRelease" "build/unknown-haveli-release.aab"
+
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: unknown-haveli-release-aab
+          path: build/unknown-haveli-release.aab

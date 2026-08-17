@@ -1,0 +1,7 @@
+# Godot / OS ignores
+.godot/
+android-sdk/
+build/
+*.keystore
+release.keystore
+.DS_Store
