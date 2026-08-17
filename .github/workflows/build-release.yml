@@ -9,10 +9,17 @@ jobs:
   build-release:
     if: ${{ secrets.RELEASE_KEYSTORE != '' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       GODOT_VERSION: "4.4.1"
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
+      - name: Record job start time
+        run: date +%s > /tmp/uh_start.txt
+
       - uses: actions/checkout@v4
+        name: Checkout
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -20,50 +27,76 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
+      - name: Install pinned Android SDK packages
+        timeout-minutes: 6
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+          SDKMANAGER="$(command -v sdkmanager || echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager")"
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
-      - name: Cache Godot binary
+      - name: Restore Godot binary cache
         id: cache-godot
         uses: actions/cache@v4
         with:
           path: godot
-          key: godot-${{ env.GODOT_VERSION }}
+          key: godot-${{ runner.os }}-${{ runner.arch }}-${{ env.GODOT_VERSION }}
 
-      - name: Download Godot
+      - name: Download Godot binary
         if: steps.cache-godot.outputs.cache-hit != 'true'
+        timeout-minutes: 8
         run: |
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          wget --show-progress --tries=3 --timeout=30 --waitretry=5 \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           unzip -o "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
           chmod +x godot
 
-      - name: Download export templates
+      - name: Restore export templates cache
+        id: cache-templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-export-templates-${{ runner.os }}-${{ env.GODOT_VERSION }}
+
+      - name: Download and install export templates
+        if: steps.cache-templates.outputs.cache-hit != 'true'
+        timeout-minutes: 15
         run: |
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          wget --show-progress --tries=3 --timeout=30 --waitretry=5 \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           unzip -o "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d /tmp/tpl
           cp /tmp/tpl/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          echo "Installed templates:"
+          ls ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
 
-      - name: Decode keystore
+      - name: Decode release keystore
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 -d > release.keystore
 
-      - name: Inject keystore config
+      - name: Inject keystore config into export_presets.cfg
         run: |
           sed -i "s|__KEYSTORE_PATH__|release.keystore|" export_presets.cfg
           sed -i "s|__KEYSTORE_PASS__|${{ secrets.RELEASE_KEYSTORE_PASSWORD }}|" export_presets.cfg
           sed -i "s|__KEYSTORE_USER__|${{ secrets.RELEASE_KEYSTORE_ALIAS }}|" export_presets.cfg
 
-      - name: Import project
+      - name: Import / validate Godot project
+        timeout-minutes: 3
         run: ./godot --headless --editor --quit
 
-      - name: Build Release AAB
-        run: ./godot --headless --export-android "AndroidRelease" "build/unknown-haveli-release.aab"
+      - name: Export real Android Release AAB
+        timeout-minutes: 10
+        run: |
+          mkdir -p build
+          ./godot --headless --export-android "AndroidRelease" "build/unknown-haveli-release.aab"
+          ls -lh build/
+
+      - name: Print job timing summary
+        run: |
+          end=$(date +%s)
+          start=$(cat /tmp/uh_start.txt)
+          echo "Total job elapsed: $(( end - start )) seconds"
+          echo "Per-step durations (Took X s) are shown next to each step in this log."
 
       - name: Upload Release AAB
         uses: actions/upload-artifact@v4
