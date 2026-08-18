@@ -88,7 +88,7 @@ jobs:
         timeout-minutes: 10
         run: |
           mkdir -p build
-          ./godot --headless --export-android "AndroidRelease" "build/unknown-haveli-release.aab"
+          ./godot --headless --export-release "AndroidRelease" "build/unknown-haveli-release.aab"
           ls -lh build/
 
       - name: Print job timing summary

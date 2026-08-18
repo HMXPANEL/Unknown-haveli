@@ -81,45 +81,15 @@ jobs:
             -storepass android -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Install gdb + strace
-        run: sudo apt-get install -y gdb strace >/dev/null 2>&1 || true
-
-      - name: Export real Android Debug APK (quick diagnostic)
-        continue-on-error: true
-        timeout-minutes: 6
+      - name: Export real Android Debug APK
+        timeout-minutes: 10
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1 &
-          BGPID=$!
-          sleep 40
-          GP=$(pgrep -x godot | head -1)
-          echo "GODOT_PID=$GP"
-          if [ -n "$GP" ]; then
-            ps -o pid,stat,etime,wchan:26,comm -p $GP
-          fi
-          echo "--- export log tail ---"
-          tail -15 /tmp/export.log
-          echo "--- build dir ---"
-          ls -la build/ 2>/dev/null
-          kill -9 $BGPID 2>/dev/null
-          pkill -9 -f "export-android" 2>/dev/null
-          sleep 1
-          echo "diagnostic done (exit 0)"
-
-      - name: Export via godot-ci container (barichello 4.4)
-        timeout-minutes: 10
-        run: |
-          docker run --rm \
-            -e GODOT_ANDROID_KEYSTORE_DEBUG_PATH=/root/debug.keystore \
-            -e GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey \
-            -e GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android \
-            -v "$GITHUB_WORKSPACE:/build" -w /build \
-            barichello/godot-ci:4.4 \
-            bash -lc "ls /root/debug.keystore 2>/dev/null; ls /root/.local/share/godot/export_templates/ 2>/dev/null; mkdir -p build && timeout 150 godot --headless --verbose --export-android 'Android' 'build/unknown-haveli-debug.apk' && ls -la build/"
+          ./godot --headless --verbose --export-debug "Android" "build/unknown-haveli-debug.apk"
 
       - name: Assert real APK exists
         run: |
