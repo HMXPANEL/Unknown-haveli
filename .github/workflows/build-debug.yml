@@ -89,9 +89,18 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          timeout 240 ./godot --verbose --headless --export-android "Android" "build/unknown-haveli-debug.apk"
-          test -f build/unknown-haveli-debug.apk && echo "APK OK" || { echo "APK NOT CREATED"; exit 1; }
-          ls -lh build/
+          timeout 60 ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" &
+          GODOT_PID=$!
+          sleep 40
+          echo "--- godot process state ---"
+          ps -o pid,stat,etime,wchan:30,cmd -p $GODOT_PID 2>/dev/null || echo "process gone"
+          echo "--- artifacts so far ---"
+          ls -la build/ 2>/dev/null || echo "no build dir"
+          find . -name "*.pck" 2>/dev/null | head
+          echo "--- stopping diagnostic ---"
+          kill -9 $GODOT_PID 2>/dev/null
+          wait $GODOT_PID
+          exit 1
 
       - name: Print job timing summary
         run: |
