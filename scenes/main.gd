@@ -1,11 +1,13 @@
 extends CharacterBody3D
 
-const WALK_SPEED := 3.5
-const ACCEL := 12.0
+const WALK_SPEED := 4.0
+const RUN_SPEED := 6.5
+const ACCEL := 14.0
 const GRAVITY := 20.0
 const LOOK_SENS := 0.005
 const JOY_RADIUS := 60.0
 const PITCH_LIMIT := 1.35
+const SPRINT_STICK := 0.85
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -56,7 +58,8 @@ func _physics_process(delta: float) -> void:
 	if wish.length_squared() > 1.0:
 		wish = wish.normalized()
 
-	var target := wish * WALK_SPEED
+	var speed := RUN_SPEED if move_input.length() > SPRINT_STICK else WALK_SPEED
+	var target := wish * speed
 	cur_vel.x = move_toward(cur_vel.x, target.x, ACCEL * delta)
 	cur_vel.z = move_toward(cur_vel.z, target.z, ACCEL * delta)
 
