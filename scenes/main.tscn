@@ -18,8 +18,9 @@ height = 1.2
 [sub_resource type="Environment" id="Env_main"]
 background_mode = 1
 background_color = Color(0.04, 0.04, 0.06, 1)
-ambient_light_color = Color(0.18, 0.18, 0.22, 1)
-ambient_light_energy = 0.5
+ambient_light_source = 2
+ambient_light_color = Color(0.2, 0.22, 0.28, 1)
+ambient_light_energy = 1.2
 tonemap_mode = 0
 
 [node name="World" type="Node3D"]
@@ -38,7 +39,7 @@ material_override = SubResource("Mat_floor")
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 position = Vector3(2, 6, 3)
 rotation = Vector3(-0.6, 0, 0)
-light_energy = 0.8
+light_energy = 1.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env_main")
