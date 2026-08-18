@@ -81,53 +81,37 @@ jobs:
             -storepass android -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Install Xvfb + gdb
-        run: sudo apt-get install -y xvfb gdb >/dev/null 2>&1 || true
+      - name: Install gdb
+        run: sudo apt-get install -y gdb >/dev/null 2>&1 || true
 
-      - name: Export real Android Debug APK (xvfb)
+      - name: Export real Android Debug APK (gdb diagnostic)
         timeout-minutes: 6
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
-          echo "--- godot keystores dir ---"
-          ls -la ~/.local/share/godot/keystores/ 2>/dev/null || echo "no keystores dir"
           mkdir -p build
-          timeout 120 xvfb-run -a ./godot --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1
-          EC=$?
-          echo "EXPORT_EXIT=$EC"
-          if [ $EC -ne 0 ]; then
-            echo "--- threads ---"
-            ps -eLf | grep -i godot | grep -v grep || echo "no godot process"
-            GP=$(pgrep -f "godot.*export-android" | head -1)
-            if [ -n "$GP" ]; then
-              echo "--- gdb backtrace of PID $GP ---"
-              timeout 30 gdb -batch -p $GP -ex "thread apply all bt" 2>/dev/null | grep -E "Thread|#[0-9]+|signal|warning" | head -60
-              pkill -9 -f "godot.*export-android" 2>/dev/null
-            fi
+          xvfb-run -a ./godot --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1 &
+          BGPID=$!
+          sleep 40
+          GP=$(pgrep -f "godot.*export-android" | head -1)
+          echo "BGPID=$BGPID GODOT_PID=$GP"
+          if [ -n "$GP" ]; then
+            echo "--- ps ---"
+            ps -o pid,stat,etime,wchan:26,comm -p $GP
+            echo "--- gdb thread backtrace ---"
+            sudo sysctl kernel.yama.ptrace_scope=0 2>/dev/null || true
+            timeout 30 sudo gdb -batch -p $GP -ex "thread apply all bt" 2>&1 | grep -vE "^\s*$|warning: (File|some) |Missing separate debuginfo|Debuginfod|Please report|Reading symbols|Downloading" | head -120
+          else
+            echo "godot process not running (exited or crashed) — export log:"
           fi
           echo "--- export log tail ---"
-          tail -40 /tmp/export.log
-          exit $EC
-
-      - name: Partition test — empty Android project export (xvfb)
-        timeout-minutes: 4
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-        run: |
-          rm -rf /tmp/emptytest && mkdir -p /tmp/emptytest/build
-          cd /tmp/emptytest
-          printf 'config_version=5\n\n[application]\nconfig/name="EmptyTest"\nrun/main_scene="res://empty.tscn"\n\n[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n' > project.godot
-          printf '[gd_scene format=3]\n\n[node name="Root" type="Node"]\n' > empty.tscn
-          cp $GITHUB_WORKSPACE/export_presets.cfg .
-          timeout 60 xvfb-run -a $GITHUB_WORKSPACE/godot --export-android "Android" "build/empty.apk" > exp.log 2>&1
-          echo "EMPTY_EXPORT_EXIT=$?"
-          tail -25 exp.log
-          echo "--- result ---"
-          ls -la build/ 2>/dev/null || echo "NO APK for empty project"
+          tail -35 /tmp/export.log
+          kill -9 $BGPID 2>/dev/null
+          pkill -9 -f "godot.*export-android" 2>/dev/null
+          sleep 1
+          exit 1
 
       - name: Assert real APK exists
         run: |
