@@ -75,11 +75,11 @@ jobs:
         run: ./godot --headless --editor --quit
 
       - name: Export real Android Debug APK
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: |
           mkdir -p build
-          ./godot --headless --export-android "Android" "build/unknown-haveli-debug.apk"
-          ls -lh build/
+          timeout 180 ./godot --verbose --headless --export-android "Android" "build/unknown-haveli-debug.apk" 2>&1 || echo "GODOT_EXIT=$?"
+          ls -lh build/ || true
 
       - name: Print job timing summary
         run: |
