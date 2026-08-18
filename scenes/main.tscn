@@ -44,7 +44,7 @@ material_override = SubResource("Mat_floor")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 position = Vector3(2, 6, 3)
-rotation = Vector3(-0.6, 0, 0)
+rotation = Vector3(1.9, 0, 0)
 light_energy = 1.5
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
