@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://bunknownhavelimain"]
+[gd_scene load_steps=12 format=3 uid="uid://bunknownhavelimain"]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
 
@@ -8,18 +8,12 @@ size = Vector2(20, 20)
 [sub_resource type="StandardMaterial3D" id="Mat_floor"]
 albedo_color = Color(0.55, 0.5, 0.45, 1)
 
-[sub_resource type="BoxMesh" id="Box_diag"]
-size = Vector3(2, 2, 2)
-
-[sub_resource type="StandardMaterial3D" id="Mat_diag"]
-albedo_color = Color(1, 0, 0, 1)
-
 [sub_resource type="BoxShape3D" id="Box_floor"]
 size = Vector3(20, 1, 20)
 
 [sub_resource type="CapsuleShape3D" id="Caps_player"]
-radius = 0.3
-height = 1.2
+radius = 0.35
+height = 1.8
 
 [sub_resource type="Environment" id="Env_main"]
 background_mode = 1
@@ -28,6 +22,21 @@ ambient_light_source = 2
 ambient_light_color = Color(0.2, 0.22, 0.28, 1)
 ambient_light_energy = 1.5
 tonemap_mode = 0
+
+[sub_resource type="BoxMesh" id="Box_mesh_wall_h"]
+size = Vector3(20, 3, 0.4)
+
+[sub_resource type="BoxMesh" id="Box_mesh_wall_v"]
+size = Vector3(0.4, 3, 20)
+
+[sub_resource type="BoxShape3D" id="Box_shape_wall_h"]
+size = Vector3(20, 3, 0.4)
+
+[sub_resource type="BoxShape3D" id="Box_shape_wall_v"]
+size = Vector3(0.4, 3, 20)
+
+[sub_resource type="StandardMaterial3D" id="Mat_wall"]
+albedo_color = Color(0.28, 0.27, 0.3, 1)
 
 [node name="World" type="Node3D"]
 
@@ -50,19 +59,55 @@ light_energy = 1.5
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env_main")
 
-[node name="DiagCube" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1.0, -3.0)
-mesh = SubResource("Box_diag")
-material_override = SubResource("Mat_diag")
+[node name="WallN" type="StaticBody3D" parent="."]
+position = Vector3(0, 1.5, -10)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallN"]
+shape = SubResource("Box_shape_wall_h")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="WallN"]
+mesh = SubResource("Box_mesh_wall_h")
+material_override = SubResource("Mat_wall")
+
+[node name="WallS" type="StaticBody3D" parent="."]
+position = Vector3(0, 1.5, 10)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallS"]
+shape = SubResource("Box_shape_wall_h")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="WallS"]
+mesh = SubResource("Box_mesh_wall_h")
+material_override = SubResource("Mat_wall")
+
+[node name="WallE" type="StaticBody3D" parent="."]
+position = Vector3(10, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallE"]
+shape = SubResource("Box_shape_wall_v")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="WallE"]
+mesh = SubResource("Box_mesh_wall_v")
+material_override = SubResource("Mat_wall")
+
+[node name="WallW" type="StaticBody3D" parent="."]
+position = Vector3(-10, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallW"]
+shape = SubResource("Box_shape_wall_v")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="WallW"]
+mesh = SubResource("Box_mesh_wall_v")
+material_override = SubResource("Mat_wall")
 
 [node name="Player" type="CharacterBody3D" parent="."]
-position = Vector3(0, 1.0, 0)
+position = Vector3(0, 1, 0)
 script = ExtResource("1_main")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
 shape = SubResource("Caps_player")
 
 [node name="Camera3D" type="Camera3D" parent="Player"]
+position = Vector3(0, 0.65, 0)
 current = true
 
 [node name="SpotLight3D" type="SpotLight3D" parent="Player/Camera3D"]
