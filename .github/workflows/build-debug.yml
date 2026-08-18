@@ -84,41 +84,31 @@ jobs:
       - name: Install gdb + strace
         run: sudo apt-get install -y gdb strace >/dev/null 2>&1 || true
 
-      - name: Export real Android Debug APK (gdb diagnostic)
+      - name: Export real Android Debug APK (quick diagnostic)
+        continue-on-error: true
         timeout-minutes: 6
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
-          echo "=== binary symbol check ==="
-          nm ./godot 2>&1 | head -3 || echo "no symtab"
-          file ./godot 2>/dev/null || true
           mkdir -p build
           ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1 &
           BGPID=$!
           sleep 40
           GP=$(pgrep -x godot | head -1)
-          echo "BGPID=$BGPID GODOT_PID=$GP"
+          echo "GODOT_PID=$GP"
           if [ -n "$GP" ]; then
-            echo "--- ps ---"
             ps -o pid,stat,etime,wchan:26,comm -p $GP
-            echo "--- strace 5s (blocked on?) ---"
-            sudo sysctl kernel.yama.ptrace_scope=0 2>/dev/null || true
-            timeout 8 sudo strace -p $GP -f -e trace=futex,read,write,poll,wait4,clone,execve,openat -c 2>&1 | tail -30
-            echo "--- gdb thread backtrace ---"
-            timeout 30 sudo gdb -batch -p $GP -ex "set pagination off" -ex "thread apply all bt" 2>&1 | grep -vE "^\s*$|warning: (File|some) |Missing separate debuginfo|Debuginfod|Please report|Reading symbols|Downloading|ptrace: Operation" | head -200
-          else
-            echo "godot process not running (exited or crashed)"
           fi
-          echo "--- addr2line of observed frames ---"
-          addr2line -f -C -e ./godot 0x41e7b2 0x51525d 0x42a9718 0x4c28b9a 0x14787a6 0x42a98e5 0x500ada3 0x9f7bd8 0x4c470d 0x4c3467 0x3b7f65e 2>&1 | head -30 || true
           echo "--- export log tail ---"
-          tail -35 /tmp/export.log
+          tail -15 /tmp/export.log
+          echo "--- build dir ---"
+          ls -la build/ 2>/dev/null
           kill -9 $BGPID 2>/dev/null
           pkill -9 -f "export-android" 2>/dev/null
           sleep 1
-          exit 1
+          echo "diagnostic done (exit 0)"
 
       - name: Export via godot-ci container (barichello 4.4)
         timeout-minutes: 10
@@ -129,7 +119,7 @@ jobs:
             -e GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android \
             -v "$GITHUB_WORKSPACE:/build" -w /build \
             barichello/godot-ci:4.4 \
-            bash -lc "mkdir -p build && timeout 150 godot --headless --verbose --export-android 'Android' 'build/unknown-haveli-debug.apk' && ls -la build/"
+            bash -lc "ls /root/debug.keystore 2>/dev/null; ls /root/.local/share/godot/export_templates/ 2>/dev/null; mkdir -p build && timeout 150 godot --headless --verbose --export-android 'Android' 'build/unknown-haveli-debug.apk' && ls -la build/"
 
       - name: Assert real APK exists
         run: |
