@@ -7,6 +7,22 @@ const JOY_RADIUS := 60.0
 @onready var camera: Camera3D = $Camera3D
 @onready var flashlight: SpotLight3D = $Camera3D/SpotLight3D
 
+func _ready() -> void:
+	print("MAIN SCENE LOADED")
+	print("PLAYER GLOBAL POS = ", global_position)
+	print("CAMERA GLOBAL POS = ", camera.global_position)
+	print("CAMERA ROTATION = ", camera.rotation)
+	print("CAMERA IS CURRENT = ", camera.is_current())
+	var floor_node = get_node_or_null("Floor/MeshInstance3D")
+	print("FLOOR NODE NULL = ", floor_node == null)
+	if floor_node != null:
+		print("FLOOR VISIBLE = ", floor_node.visible)
+		print("FLOOR MESH = ", floor_node.mesh)
+	var dl = get_node_or_null("DirectionalLight3D")
+	print("DIRECTIONAL LIGHT NULL = ", dl == null)
+	if dl != null:
+		print("DIRECTIONAL LIGHT ENERGY = ", dl.light_energy)
+
 var joy_active := false
 var joy_origin := Vector2.ZERO
 var move_dir := Vector2.ZERO
