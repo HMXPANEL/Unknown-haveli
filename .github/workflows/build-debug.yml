@@ -92,24 +92,25 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          xvfb-run -a ./godot --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1 &
+          ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" > /tmp/export.log 2>&1 &
           BGPID=$!
           sleep 40
-          GP=$(pgrep -f "godot.*export-android" | head -1)
+          GP=$(pgrep -x godot | head -1)
+          if [ -z "$GP" ]; then GP=$(pgrep -f "export-android" | grep -v xvfb | head -1); fi
           echo "BGPID=$BGPID GODOT_PID=$GP"
           if [ -n "$GP" ]; then
             echo "--- ps ---"
             ps -o pid,stat,etime,wchan:26,comm -p $GP
             echo "--- gdb thread backtrace ---"
             sudo sysctl kernel.yama.ptrace_scope=0 2>/dev/null || true
-            timeout 30 sudo gdb -batch -p $GP -ex "thread apply all bt" 2>&1 | grep -vE "^\s*$|warning: (File|some) |Missing separate debuginfo|Debuginfod|Please report|Reading symbols|Downloading" | head -120
+            timeout 30 sudo gdb -batch -p $GP -ex "set pagination off" -ex "thread apply all bt" 2>&1 | grep -vE "^\s*$|warning: (File|some) |Missing separate debuginfo|Debuginfod|Please report|Reading symbols|Downloading|ptrace: Operation" | head -150
           else
-            echo "godot process not running (exited or crashed) — export log:"
+            echo "godot process not running (exited or crashed)"
           fi
           echo "--- export log tail ---"
           tail -35 /tmp/export.log
           kill -9 $BGPID 2>/dev/null
-          pkill -9 -f "godot.*export-android" 2>/dev/null
+          pkill -9 -f "export-android" 2>/dev/null
           sleep 1
           exit 1
 
