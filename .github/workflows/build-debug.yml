@@ -74,12 +74,24 @@ jobs:
         timeout-minutes: 3
         run: ./godot --headless --editor --quit
 
+      - name: Generate Android debug keystore
+        run: |
+          keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Export real Android Debug APK
-        timeout-minutes: 5
+        timeout-minutes: 6
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          timeout 180 ./godot --verbose --headless --export-android "Android" "build/unknown-haveli-debug.apk" 2>&1 || echo "GODOT_EXIT=$?"
-          ls -lh build/ || true
+          timeout 240 ./godot --verbose --headless --export-android "Android" "build/unknown-haveli-debug.apk"
+          test -f build/unknown-haveli-debug.apk && echo "APK OK" || { echo "APK NOT CREATED"; exit 1; }
+          ls -lh build/
 
       - name: Print job timing summary
         run: |
