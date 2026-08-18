@@ -81,26 +81,52 @@ jobs:
             -storepass android -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Export real Android Debug APK
+      - name: Export real Android Debug APK (diagnostic)
+        continue-on-error: true
         timeout-minutes: 6
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          echo "--- editor settings: android keys ---"
+          grep -i "sdk\|keystore\|android" ~/.config/godot/editor_settings-*.tres 2>/dev/null || echo "NO android keys in editor settings"
+          echo "--- preset keystore keys ---"
+          grep -i "keystore" export_presets.cfg || echo "NO keystore keys in preset"
           mkdir -p build
-          timeout 60 ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" &
-          GODOT_PID=$!
+          timeout 60 ./godot --headless --verbose --export-android "Android" "build/unknown-haveli-debug.apk" 2>&1 &
+          BG=$!
           sleep 40
-          echo "--- godot process state ---"
-          ps -o pid,stat,etime,wchan:30,cmd -p $GODOT_PID 2>/dev/null || echo "process gone"
-          echo "--- artifacts so far ---"
-          ls -la build/ 2>/dev/null || echo "no build dir"
-          find . -name "*.pck" 2>/dev/null | head
+          echo "--- all relevant processes ---"
+          ps -eo pid,ppid,stat,etime,wchan:28,comm | grep -iE "godot|aapt|zipalign|apksigner|keytool|timeout" | grep -v grep || echo "NONE running"
+          echo "--- build dir ---"
+          ls -la build/ 2>/dev/null
           echo "--- stopping diagnostic ---"
-          kill -9 $GODOT_PID 2>/dev/null
-          wait $GODOT_PID
-          exit 1
+          pkill -9 -f "godot --headless" 2>/dev/null
+          wait $BG || true
+          exit 0
+
+      - name: Partition test — empty Android project export
+        timeout-minutes: 4
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          rm -rf /tmp/emptytest && mkdir -p /tmp/emptytest/build
+          cd /tmp/emptytest
+          printf 'config_version=5\n\n[application]\nconfig/name="EmptyTest"\nrun/main_scene="res://empty.tscn"\n\n[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n' > project.godot
+          printf '[gd_scene format=3]\n\n[node name="Root" type="Node"]\n' > empty.tscn
+          cp $GITHUB_WORKSPACE/export_presets.cfg .
+          timeout 60 $GITHUB_WORKSPACE/godot --headless --verbose --export-android "Android" "build/empty.apk" > exp.log 2>&1
+          echo "EMPTY_EXPORT_EXIT=$?"
+          tail -25 exp.log
+          echo "--- result ---"
+          ls -la build/ 2>/dev/null || echo "NO APK for empty project"
+
+      - name: Assert real APK exists
+        run: |
+          test -f build/unknown-haveli-debug.apk && echo "APK OK: $(ls -lh build/unknown-haveli-debug.apk | awk '{print $5}')" || { echo "FAIL: no APK produced"; exit 1; }
 
       - name: Print job timing summary
         run: |
